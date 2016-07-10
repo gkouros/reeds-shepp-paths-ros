@@ -41,8 +41,8 @@
 
 namespace reeds_shepp
 {
-  RSPathsROS::RSPathsROS(double minTurningRadius)
-    : minTurningRadius_(minTurningRadius),
+  RSPathsROS::RSPathsROS(double minTurningRadius, double maxPlanningDuration)
+    : minTurningRadius_(minTurningRadius), maxPlanningDuration_(maxPlanningDuration),
     reedsSheppStateSpace_(new ompl::base::ReedsSheppStateSpace),
     simpleSetup_(new ompl::geometric::SimpleSetup(reedsSheppStateSpace_))
   {
@@ -106,7 +106,7 @@ namespace reeds_shepp
     // simpleSetup_->setup();  // called by solve automatically
     // simpleSetup_->print();
 
-    if (!simpleSetup_->solve(0.1))
+    if (!simpleSetup_->solve(maxPlanningDuration_))
     {
       ROS_ERROR("No solution found");
       return false;

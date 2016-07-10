@@ -52,7 +52,7 @@ namespace reeds_shepp
   {
     public:
 
-      RSPathsROS(double minTurningRadius);
+      RSPathsROS(double minTurningRadius, double maxPlanningDuration);
 
       ~RSPathsROS();
 
@@ -68,14 +68,20 @@ namespace reeds_shepp
         std::vector<geometry_msgs::Pose>& pathPoses,
         double bubbleRadius);
 
+      double getMinTurningRadius() {return minTurningRadius_;}
+      double getMaxPlanningDuration() {return maxPlanningDuration_;}
+      void setMinTurningRadius(double rho) {minTurningRadius_ = rho;}
+      void setMaxPlanningDuration(double tmax) {maxPlanningDuration_ = tmax;}
+
     private:
+
       ompl::base::StateSpacePtr reedsSheppStateSpace_;
       ompl::geometric::SimpleSetupPtr simpleSetup_;
 
       double minTurningRadius_;
-      std::vector<geometry_msgs::Pose> path_;
+      double maxPlanningDuration_;
+  };
 
-  };  // class RSPathsROS
 }  // namespace reeds_shepp
 
 #endif  // REEDS_SHEPP_PATHS_REEDS_SHEPP_PATHS_H

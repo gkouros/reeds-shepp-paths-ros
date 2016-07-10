@@ -110,7 +110,8 @@ int main(int argc, char** argv)
 
   // initialize ReedsSheppPathsROS
   double minTurningRadius = 1.0;
-  reeds_shepp::RSPathsROS RSPlanner(minTurningRadius);
+  double maxPlanningDuration = 0.1;
+  reeds_shepp::RSPathsROS RSPlanner(minTurningRadius, maxPlanningDuration);
 
   while (ros::ok())
   {
