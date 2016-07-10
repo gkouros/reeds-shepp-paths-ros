@@ -36,30 +36,123 @@
 *********************************************************************/
 
 #include <tf/tf.h>
+#include <geometry_msgs/Pose.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <nav_msgs/Path.h>
 #include "reeds_shepp_paths_ros/reeds_shepp_paths_ros.h"
 #include <math.h>
+
+class StartGoalUpdater
+{
+  public:
+
+    StartGoalUpdater(
+      ros::NodeHandle* nh,
+      geometry_msgs::PoseStamped* start,
+      geometry_msgs::PoseStamped* goal)
+      : nh_(nh), start_(start), goal_(goal),
+        receivedStart_(false), receivedGoal_(false)
+    {
+      startSub_ = nh_->subscribe(
+        "/initialpose", 1, &StartGoalUpdater::startCallback, this);
+      goalSub_ = nh_->subscribe(
+        "/move_base_simple/goal", 1, &StartGoalUpdater::goalCallback, this);
+    }
+
+    void startCallback(const geometry_msgs::PoseWithCovarianceStamped& msg)
+    {
+      if (!receivedStart_)
+        receivedStart_ = true;
+
+      start_->header = msg.header;
+      start_->pose = msg.pose.pose;
+    }
+
+    void goalCallback(const geometry_msgs::PoseStamped& msg)
+    {
+      if (!receivedGoal_)
+        receivedGoal_ = true;
+
+      *goal_ = msg;
+    }
+
+    bool receivedStart() {return receivedStart_;}
+    bool receivedGoal() {return receivedGoal_;}
+    bool receivedStartAndGoal() {return (receivedStart_ && receivedGoal_);}
+
+  private:
+
+    ros::NodeHandle* nh_;
+    ros::Subscriber startSub_;
+    ros::Subscriber goalSub_;
+
+    geometry_msgs::PoseStamped* start_;
+    geometry_msgs::PoseStamped* goal_;
+
+    bool receivedStart_;
+    bool receivedGoal_;
+};
 
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "reeds_shepp_paths_ros_demo");
   ros::NodeHandle nh("~");
 
-  geometry_msgs::Pose start, end;
+  // create path publisher
+  ros::Publisher pathPub = nh.advertise<nav_msgs::Path>("path", 1);
+  ros::Publisher startPosePub = nh.advertise<geometry_msgs::PoseStamped>("start_pose", 1);
+  ros::Publisher goalPosePub = nh.advertise<geometry_msgs::PoseStamped>("goal_pose", 1);
 
-  start.position.x = 0.0;
-  start.position.y = 0.0;
-  start.orientation = tf::createQuaternionMsgFromYaw(0.0);
+  geometry_msgs::PoseStamped start, goal;
 
-  end.position.x = 2.0;
-  end.position.y = 3.0;
-  end.orientation = tf::createQuaternionMsgFromYaw(M_PI);
+  StartGoalUpdater sgu(&nh, &start, &goal);
 
+  // initialize ReedsSheppPathsROS
   double minTurningRadius = 1.0;
-
   reeds_shepp::RSPathsROS RSPlanner(minTurningRadius);
 
-  std::vector<geometry_msgs::Pose> path;
-  RSPlanner.planPath(start, end, path);
+  while (ros::ok())
+  {
+    if (sgu.receivedStart())
+      startPosePub.publish(start);
+    if (sgu.receivedGoal())
+      goalPosePub.publish(goal);
+
+    if (sgu.receivedStartAndGoal())
+    {
+      // plan path from start to goal pose
+      std::vector<geometry_msgs::Pose> pathPoses;
+      double planningBoundary = 5;
+      RSPlanner.planPath(start.pose, goal.pose, pathPoses, planningBoundary);
+
+      std_msgs::Header header =
+        (start.header.stamp > goal.header.stamp) ? start.header : goal.header;
+
+      // create path msg from path states
+      nav_msgs::Path path;
+      path.header = header;
+      path.poses.resize(pathPoses.size());
+
+      for (unsigned int i = 0; i < pathPoses.size(); i++)
+      {
+        path.poses[i].header = header;
+        path.poses[i].pose = pathPoses[i];
+      }
+
+      // publish path
+      pathPub.publish(path);
+    }
+    else
+    {
+      ROS_INFO("Waiting for start and goal poses...");
+    }
+
+
+    ros::spinOnce();
+
+    ros::Duration(1.0).sleep();
+  }
 
   return 0;
 }

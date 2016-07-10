@@ -37,6 +37,7 @@
 
 #include "reeds_shepp_paths_ros/reeds_shepp_paths_ros.h"
 #include <tf/tf.h>
+#include <boost/foreach.hpp>
 
 namespace reeds_shepp
 {
@@ -53,99 +54,86 @@ namespace reeds_shepp
   }
 
 
-  // void RSPathsROS::pose2state(
-    // const geometry_msgs::Pose& pose,
-    // ompl::base::ReedsSheppStateSpace::StateType& state)
-  // {
-    // state.setXY(pose.position.x, pose.position.y);
-    // state.setYaw(tf::getYaw(pose.orientation));
-  // }
+  void RSPathsROS::state2pose(
+    const ompl::base::State* state, geometry_msgs::Pose& pose)
+  {
+    const ompl::base::SE2StateSpace::StateType *s =
+      state->as<ompl::base::SE2StateSpace::StateType>();
+    pose.position.x = s->getX();
+    pose.position.y = s->getY();
+    pose.orientation = tf::createQuaternionMsgFromYaw(s->getYaw());
+  }
 
-
-  // ompl::base::ReedsSheppStateSpace::StateType
-    // RSPathsROS::pose2state(const geometry_msgs::Pose& pose)
-  // {
-    // ompl::base::ReedsSheppStateSpace::StateType* state
-    // state.setXY(pose.position.x, pose.position.y);
-    // state.setYaw(tf::getYaw(pose.orientation))
-    // return state;
-  // }
-
-
-  // void RSPathsROS::state2pose(
-    // const ompl::base::ReedsSheppStateSpace::StateType& state,
-    // geometry_msgs::Pose& pose)
-  // {
-    // pose.position.x = state.getX();
-    // pose.position.y = state.getY();
-    // pose.orientation = tf::createQuaternionMsgFromYaw(state.getYaw());
-  // }
-
-
-  // geometry_msgs::Pose RSPathsROS::state2pose(
-    // const ompl::base::ReedsSheppStateSpace::StateType& state)
-  // {
-    // geometry_msgs::Pose pose;
-    // pose.position.x = state.getX();
-    // pose.position.y = state.getY();
-    // pose.orientation = tf::createQuaternionMsgFromYaw(state.getYaw());
-    // return pose;
-  // }
-
+  void RSPathsROS::pose2state(
+    const geometry_msgs::Pose& pose, ompl::base::State* state)
+  {
+    ompl::base::SE2StateSpace::StateType *s =
+      state->as<ompl::base::SE2StateSpace::StateType>();
+    s->setX(pose.position.x);
+    s->setY(pose.position.y);
+    s->setYaw(tf::getYaw(pose.orientation));
+  }
 
   bool RSPathsROS::planPath(
     const geometry_msgs::Pose& startPose,
-    const geometry_msgs::Pose& endPose,
-    std::vector<geometry_msgs::Pose>& pathPoses)
+    const geometry_msgs::Pose& goalPose,
+    std::vector<geometry_msgs::Pose>& pathPoses,
+    double bubbleRadius)
   {
     ompl::base::ScopedState<> start(reedsSheppStateSpace_), goal(reedsSheppStateSpace_);
     ompl::base::RealVectorBounds bounds(2);
-    bounds.setLow(0);
-    bounds.setHigh(18);
+    bounds.setLow(-bubbleRadius);
+    bounds.setHigh(bubbleRadius);
     reedsSheppStateSpace_->as<ompl::base::SE2StateSpace>()->setBounds(bounds);
 
-    // define a simple setup class
-    ompl::geometric::SimpleSetup simpleSetup_(reedsSheppStateSpace_);
+    // TODO set state validity checking
+    // ompl::base::SpaceInformationPtr
+      // spaceInformation(simpleSetup_->.getSpaceInformation());
+    // reedsSheppStateSpace_.setStateValidityChecker(
+      // std::bind(TODO customStateValidityChecker, spaceInformation.get(),
+        // std::placeholders::_1));
 
-    // set state validity checking for this space
-    ompl::base::SpaceInformationPtr
-      spaceInformation(simpleSetup_.getSpaceInformation());
-    reedsSheppStateSpace_.setStateValidityChecker(
-      std::bind(
-        true ? &isStateValidEasy : &isStateValidHard, si.get(),
-        std::placeholders::_1));
+    pose2state(startPose, start());
+    pose2state(goalPose, goal());
 
-    start[0] = startPose.position.x;
-    start[1] = startPose.position.y;
-    start[2] = tf::getYaw(startPose.orientation);
-
-    goal[0] = endPose.position.x;
-    goal[1] = endPose.position.y;
-    goal[2] = tf::getYaw(endPose.orientation);
-
-    simpleSetup_.setStartAndGoalStates(start, goal);
+    // clear all planning data
+    simpleSetup_->clear();
+    // set new start and goal states
+    simpleSetup_->setStartAndGoalStates(start, goal);
 
     // print space and planning info
-    // simpleSetup_.getSpaceInformation()->setStateValidityCheckingResolution(0.1);
-    // simpleSetup_.setup();
-    // simpleSetup_.print();
+    // simpleSetup_->getSpaceInformation()->setStateValidityCheckingResolution(0.1);
+    // simpleSetup_->setup();  // called by solve automatically
+    // simpleSetup_->print();
 
-    // attempt to solve the problem within 30 seconds of planning time
-    ompl::base::PlannerStatus
-      solved = simpleSetup_.solve(30.0);
-
-    if (!solved)
+    if (!simpleSetup_->solve(0.1))
     {
       ROS_ERROR("No solution found");
       return false;
     }
+    else
+      ROS_INFO("Found solution");
 
-    ROS_INFO("Found solution");
-
-    simpleSetup_.simplifySolution();
-    ompl::geometric::PathGeometric path = simpleSetup_.getSolutionPath();
+    // simplify solution
+    simpleSetup_->simplifySolution();
+    // get solution path
+    ompl::geometric::PathGeometric path = simpleSetup_->getSolutionPath();
+    // interpolate between poses using 50 intermediate poses
     path.interpolate(50);
-    path.printAsMatrix(std::cout);
+
+    // clear pathPoses vector in case it's not empty
+    pathPoses.clear();
+
+    // convert each state to a pose and store it in pathPoses vector
+    for (unsigned int i = 0; i < path.getStateCount(); i++)
+    {
+      const ompl::base::State* pathState = path.getState(i);
+      geometry_msgs::Pose pathPose;
+      state2pose(pathState, pathPose);
+      pathPoses.push_back(pathPose);
+    }
+
+    // path.printAsMatrix(std::cout);  // prints poses in matrix format
 
     return true;
   }

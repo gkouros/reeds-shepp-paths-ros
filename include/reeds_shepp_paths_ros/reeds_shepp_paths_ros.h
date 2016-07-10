@@ -56,28 +56,21 @@ namespace reeds_shepp
 
       ~RSPathsROS();
 
-      // void pose2state(
-        // const geometry_msgs::Pose& pose,
-        // ompl::base::ReedsSheppStateSpace::StateType& state);
+      void state2pose(
+        const ompl::base::State* state, geometry_msgs::Pose& pose);
 
-      // ompl::base::ReedsSheppStateSpace::StateType pose2state(
-        // const geometry_msgs::Pose& pose);
-
-      // void state2pose(
-        // const ompl::base::ReedsSheppStateSpace::StateType& state,
-        // geometry_msgs::Pose& pose);
-
-      // geometry_msgs::Pose state2pose(
-        // const ompl::base::ReedsSheppStateSpace::StateType& state);
+      void pose2state(
+        const geometry_msgs::Pose& pose, ompl::base::State* state);
 
       bool planPath(
         const geometry_msgs::Pose& startPose,
-        const geometry_msgs::Pose& endPose,
-        std::vector<geometry_msgs::Pose>& pathPoses);
+        const geometry_msgs::Pose& goalPose,
+        std::vector<geometry_msgs::Pose>& pathPoses,
+        double bubbleRadius);
 
     private:
       ompl::base::StateSpacePtr reedsSheppStateSpace_;
-      ompl::geometric::SimpleSetup* simpleSetup_;
+      ompl::geometric::SimpleSetupPtr simpleSetup_;
 
       double minTurningRadius_;
       std::vector<geometry_msgs::Pose> path_;
