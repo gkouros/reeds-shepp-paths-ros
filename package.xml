@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>reeds_shepp_paths_ros</name>
+  <version>0.0.0</version>
+  <description>The reeds_shepp_paths_ros package</description>
+
+  <maintainer email="gkouros@todo.todo">gkouros</maintainer>
+
+  <license>BSD</license>
+
+  <author email="jane.doe@example.com">Jane Doe</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>roscpp</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>ompl</depend>
+
+  <export>
+  </export>
+</package>
