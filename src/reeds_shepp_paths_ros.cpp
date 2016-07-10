@@ -78,12 +78,12 @@ namespace reeds_shepp
     const geometry_msgs::Pose& startPose,
     const geometry_msgs::Pose& goalPose,
     std::vector<geometry_msgs::Pose>& pathPoses,
-    double bubbleRadius)
+    double boundarySize)
   {
     ompl::base::ScopedState<> start(reedsSheppStateSpace_), goal(reedsSheppStateSpace_);
     ompl::base::RealVectorBounds bounds(2);
-    bounds.setLow(-bubbleRadius);
-    bounds.setHigh(bubbleRadius);
+    bounds.setLow(-boundarySize/2);
+    bounds.setHigh(boundarySize/2);
     reedsSheppStateSpace_->as<ompl::base::SE2StateSpace>()->setBounds(bounds);
 
     // TODO set state validity checking

@@ -66,7 +66,7 @@ namespace reeds_shepp
         const geometry_msgs::Pose& startPose,
         const geometry_msgs::Pose& goalPose,
         std::vector<geometry_msgs::Pose>& pathPoses,
-        double bubbleRadius);
+        double boundarySize);
 
       double getMinTurningRadius() {return minTurningRadius_;}
       double getMaxPlanningDuration() {return maxPlanningDuration_;}
