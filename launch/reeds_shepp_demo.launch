@@ -1,0 +1,11 @@
+<launch>
+
+  <arg name="rviz" default="true" />
+
+  <group if="$(arg rviz)">
+    <include file="$(find reeds_shepp_paths_ros)/launch/rviz.launch" />
+  </group>
+
+  <node name="reeds_shepp_paths_ros_demo" pkg="reeds_shepp_paths_ros" type="demo" />
+
+</launch>

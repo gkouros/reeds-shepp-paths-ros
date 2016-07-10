@@ -1,0 +1,9 @@
+<launch>
+
+  <node
+    name="rviz"
+    pkg="rviz"
+    type="rviz"
+    args="-d $(find reeds_shepp_paths_ros)/config/config.rviz" />
+
+</launch>
