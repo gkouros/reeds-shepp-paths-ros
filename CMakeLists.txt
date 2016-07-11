@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(reeds_shepp_paths_ros)
 
-# C++ 11 required for OMPL
 # add_compile_options(-std=c++11)
 
 find_package(catkin REQUIRED
@@ -12,27 +11,30 @@ find_package(catkin REQUIRED
 )
 
 find_package(OMPL)
+if (NOT OMPL_FOUND)
+  message(SEND_ERROR "Failed to find OMPL! Install OMPL and try again!")
+endif ()
 
 include_directories(
   include
+  ${catkin_INCLUDE_DIRS}
   ${OMPL_INCLUDE_DIRS}
-  ${catkin_INCLUDE_DIRS})
+)
+
 
 catkin_package(
   INCLUDE_DIRS
     include
-    ${OMPL_INCLUDE_DIRS}
   CATKIN_DEPENDS
     roscpp
     geometry_msgs
     nav_msgs
-  # DEPENDS
   LIBRARIES
-    reeds_shepp_paths_ros
+    ${PROJECT_NAME}
   )
 
-add_library(reeds_shepp_paths_ros src/reeds_shepp_paths_ros.cpp)
-target_link_libraries(reeds_shepp_paths_ros ${catkin_LIBRARIES} ${OMPL_LIBRARIES})
+add_library(${PROJECT_NAME} src/${PROJECT_NAME}.cpp)
+target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} ${OMPL_LIBRARIES})
 
 add_executable(demo src/demo.cpp)
-target_link_libraries(demo reeds_shepp_paths_ros ${catkin_LIBARRIES})
+target_link_libraries(demo ${PROJECT_NAME} ${catkin_LIBARRIES})
