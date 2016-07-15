@@ -105,6 +105,7 @@ int main(int argc, char** argv)
   ros::Publisher goalPosePub = nh.advertise<geometry_msgs::PoseStamped>("goal_pose", 1);
 
   geometry_msgs::PoseStamped start, goal;
+  start.header.frame_id = goal.header.frame_id = "map";
 
   StartGoalUpdater sgu(&nh, &start, &goal);
 
@@ -123,9 +124,9 @@ int main(int argc, char** argv)
     if (sgu.receivedStartAndGoal())
     {
       // plan path from start to goal pose
-      std::vector<geometry_msgs::Pose> pathPoses;
+      std::vector<geometry_msgs::PoseStamped> pathPoses;
       double planningBoundary = 5;
-      RSPlanner.planPath(start.pose, goal.pose, pathPoses, planningBoundary);
+      RSPlanner.planPath(start, goal, pathPoses, planningBoundary);
 
       std_msgs::Header header =
         (start.header.stamp > goal.header.stamp) ? start.header : goal.header;
@@ -133,13 +134,7 @@ int main(int argc, char** argv)
       // create path msg from path states
       nav_msgs::Path path;
       path.header = header;
-      path.poses.resize(pathPoses.size());
-
-      for (unsigned int i = 0; i < pathPoses.size(); i++)
-      {
-        path.poses[i].header = header;
-        path.poses[i].pose = pathPoses[i];
-      }
+      path.poses = pathPoses;
 
       // publish path
       pathPub.publish(path);

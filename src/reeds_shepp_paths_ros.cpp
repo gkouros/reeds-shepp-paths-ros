@@ -65,32 +65,36 @@ namespace reeds_shepp
 
 
   void RSPathsROS::state2pose(
-    const ompl::base::State* state, geometry_msgs::Pose& pose)
+    const ompl::base::State* state, geometry_msgs::PoseStamped& pose)
   {
     const ompl::base::SE2StateSpace::StateType *s =
       state->as<ompl::base::SE2StateSpace::StateType>();
-    pose.position.x = s->getX();
-    pose.position.y = s->getY();
-    pose.orientation = tf::createQuaternionMsgFromYaw(s->getYaw());
+    pose.pose.position.x = s->getX();
+    pose.pose.position.y = s->getY();
+    pose.pose.orientation = tf::createQuaternionMsgFromYaw(s->getYaw());
   }
 
   void RSPathsROS::pose2state(
-    const geometry_msgs::Pose& pose, ompl::base::State* state)
+    const geometry_msgs::PoseStamped& pose, ompl::base::State* state)
   {
     ompl::base::SE2StateSpace::StateType *s =
       state->as<ompl::base::SE2StateSpace::StateType>();
-    s->setX(pose.position.x);
-    s->setY(pose.position.y);
-    s->setYaw(tf::getYaw(pose.orientation));
+    s->setX(pose.pose.position.x);
+    s->setY(pose.pose.position.y);
+    s->setYaw(tf::getYaw(pose.pose.orientation));
   }
 
   bool RSPathsROS::planPath(
-    const geometry_msgs::Pose& startPose,
-    const geometry_msgs::Pose& goalPose,
-    std::vector<geometry_msgs::Pose>& pathPoses,
+    const geometry_msgs::PoseStamped& startPose,
+    const geometry_msgs::PoseStamped& goalPose,
+    std::vector<geometry_msgs::PoseStamped>& pathPoses,
     double boundarySize)
   {
-    ompl::base::ScopedState<> start(reedsSheppStateSpace_), goal(reedsSheppStateSpace_);
+    ompl::base::ScopedState<> start(reedsSheppStateSpace_);
+    ompl::base::ScopedState<> goal(reedsSheppStateSpace_);
+    pose2state(startPose, start());
+    pose2state(goalPose, goal());
+
     ompl::base::RealVectorBounds bounds(2);
     bounds.setLow(-boundarySize/2);
     bounds.setHigh(boundarySize/2);
@@ -102,9 +106,6 @@ namespace reeds_shepp
     // reedsSheppStateSpace_.setStateValidityChecker(
       // std::bind(TODO customStateValidityChecker, spaceInformation.get(),
         // std::placeholders::_1));
-
-    pose2state(startPose, start());
-    pose2state(goalPose, goal());
 
     // clear all planning data
     simpleSetup_->clear();
@@ -138,8 +139,9 @@ namespace reeds_shepp
     for (unsigned int i = 0; i < path.getStateCount(); i++)
     {
       const ompl::base::State* pathState = path.getState(i);
-      geometry_msgs::Pose pathPose;
+      geometry_msgs::PoseStamped pathPose;
       state2pose(pathState, pathPose);
+      pathPose.header = startPose.header;
       pathPoses.push_back(pathPose);
     }
 

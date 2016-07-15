@@ -40,6 +40,7 @@
 
 #include <ros/ros.h>
 #include <geometry_msgs/Pose.h>
+#include <geometry_msgs/PoseStamped.h>
 
 #include <ompl/base/ScopedState.h>
 #include <ompl/geometric/SimpleSetup.h>
@@ -58,15 +59,15 @@ namespace reeds_shepp
       ~RSPathsROS();
 
       void state2pose(
-        const ompl::base::State* state, geometry_msgs::Pose& pose);
+        const ompl::base::State* state, geometry_msgs::PoseStamped& pose);
 
       void pose2state(
-        const geometry_msgs::Pose& pose, ompl::base::State* state);
+        const geometry_msgs::PoseStamped& pose, ompl::base::State* state);
 
       bool planPath(
-        const geometry_msgs::Pose& startPose,
-        const geometry_msgs::Pose& goalPose,
-        std::vector<geometry_msgs::Pose>& pathPoses,
+        const geometry_msgs::PoseStamped& startPose,
+        const geometry_msgs::PoseStamped& goalPose,
+        std::vector<geometry_msgs::PoseStamped>& pathPoses,
         double boundarySize);
 
       double getMinTurningRadius() {return minTurningRadius_;}
