@@ -48,6 +48,16 @@ namespace reeds_shepp
   {
   }
 
+  RSPathsROS::RSPathsROS(std::string name) :
+    reedsSheppStateSpace_(new ompl::base::ReedsSheppStateSpace),
+    simpleSetup_(new ompl::geometric::SimpleSetup(reedsSheppStateSpace_))
+  {
+    ros::NodeHandle pnh("~/" + name);
+    pnh.param("min_turning_radius", minTurningRadius_, 1.0);
+    pnh.param("maxPlanningDuration", maxPlanningDuration_, 0.2);
+  }
+
+
 
   RSPathsROS::~RSPathsROS()
   {

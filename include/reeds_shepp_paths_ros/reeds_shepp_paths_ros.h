@@ -53,6 +53,7 @@ namespace reeds_shepp
     public:
 
       RSPathsROS(double minTurningRadius, double maxPlanningDuration);
+      RSPathsROS(std::string name);
 
       ~RSPathsROS();
 
