@@ -6,6 +6,8 @@ project(reeds_shepp_paths_ros)
 find_package(catkin REQUIRED
   COMPONENTS
     roscpp
+    costmap_2d
+    base_local_planner
     geometry_msgs
     nav_msgs
 )
@@ -27,6 +29,8 @@ catkin_package(
     include
   CATKIN_DEPENDS
     roscpp
+    costmap_2d
+    base_local_planner
     geometry_msgs
     nav_msgs
   LIBRARIES

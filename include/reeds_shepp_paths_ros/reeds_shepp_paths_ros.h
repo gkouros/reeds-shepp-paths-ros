@@ -39,6 +39,8 @@
 #define REEDS_SHEPP_PATHS_REEDS_SHEPP_PATHS_H
 
 #include <ros/ros.h>
+#include <costmap_2d/costmap_2d_ros.h>
+#include <base_local_planner/costmap_model.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseStamped.h>
 
@@ -53,10 +55,38 @@ namespace reeds_shepp
   {
     public:
 
-      RSPathsROS(double minTurningRadius, double maxPlanningDuration);
-      RSPathsROS(std::string name);
+      RSPathsROS(
+        std::string name,
+        costmap_2d::Costmap2DROS* costmapROS,
+        tf::TransformListener* tfListener);
 
       ~RSPathsROS();
+
+      void initialize(
+        std::string name,
+        costmap_2d::Costmap2DROS* costmapROS,
+        tf::TransformListener* tfListener);
+
+      bool planPath(
+        const geometry_msgs::PoseStamped& startPose,
+        const geometry_msgs::PoseStamped& goalPose,
+        std::vector<geometry_msgs::PoseStamped>& pathPoses);
+
+      double getMinTurningRadius() {return minTurningRadius_;}
+      double getMaxPlanningDuration() {return maxPlanningDuration_;}
+      double getBX() {return bx_;}
+      double getBY() {return by_;}
+      void setMinTurningRadius(double rho) {minTurningRadius_ = rho;}
+      void setMaxPlanningDuration(double tmax) {maxPlanningDuration_ = tmax;}
+      void setBoundaries(double bx, double by);
+
+    private:
+
+      void transform(const geometry_msgs::PoseStamped& poseIn,
+        geometry_msgs::PoseStamped& poseOut, std::string newFrameID);
+
+      void transform(const tf::Stamped<tf::Pose>& tfIn,
+        tf::Stamped<tf::Pose>& tfOut, std::string newFrameID);
 
       void state2pose(
         const ompl::base::State* state, geometry_msgs::PoseStamped& pose);
@@ -64,24 +94,36 @@ namespace reeds_shepp
       void pose2state(
         const geometry_msgs::PoseStamped& pose, ompl::base::State* state);
 
-      bool planPath(
-        const geometry_msgs::PoseStamped& startPose,
-        const geometry_msgs::PoseStamped& goalPose,
-        std::vector<geometry_msgs::PoseStamped>& pathPoses,
-        double boundarySize);
-
-      double getMinTurningRadius() {return minTurningRadius_;}
-      double getMaxPlanningDuration() {return maxPlanningDuration_;}
-      void setMinTurningRadius(double rho) {minTurningRadius_ = rho;}
-      void setMaxPlanningDuration(double tmax) {maxPlanningDuration_ = tmax;}
+      bool isStateValid(
+        const ompl::base::SpaceInformation* si, const ompl::base::State *state);
 
     private:
 
       ompl::base::StateSpacePtr reedsSheppStateSpace_;
       ompl::geometric::SimpleSetupPtr simpleSetup_;
+      ompl::base::RealVectorBounds bounds_;
+
+      costmap_2d::Costmap2D *costmap_;
+      costmap_2d::Costmap2DROS *costmapROS_;
+      base_local_planner::CostmapModel *costmapModel_;
+      std::vector<geometry_msgs::Point> footprint_;
+
+      tf::TransformListener* tfListener_;
+
+      std::string robotFrame_;
+      std::string globalFrame_;
+
+      ros::Time stamp_;
 
       double minTurningRadius_;
       double maxPlanningDuration_;
+      int interpolationNumPoses_;
+      int validStateMaxCost_;
+
+      double bx_;
+      double by_;
+
+      bool initialized_;
   };
 
 }  // namespace reeds_shepp

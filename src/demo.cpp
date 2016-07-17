@@ -110,9 +110,7 @@ int main(int argc, char** argv)
   StartGoalUpdater sgu(&nh, &start, &goal);
 
   // initialize ReedsSheppPathsROS
-  double minTurningRadius = 1.0;
-  double maxPlanningDuration = 0.1;
-  reeds_shepp::RSPathsROS RSPlanner(minTurningRadius, maxPlanningDuration);
+  reeds_shepp::RSPathsROS RSPlanner("demo", NULL, NULL);
 
   while (ros::ok())
   {
@@ -125,8 +123,7 @@ int main(int argc, char** argv)
     {
       // plan path from start to goal pose
       std::vector<geometry_msgs::PoseStamped> pathPoses;
-      double planningBoundary = 5;
-      RSPlanner.planPath(start, goal, pathPoses, planningBoundary);
+      RSPlanner.planPath(start, goal, pathPoses);
 
       std_msgs::Header header =
         (start.header.stamp > goal.header.stamp) ? start.header : goal.header;
