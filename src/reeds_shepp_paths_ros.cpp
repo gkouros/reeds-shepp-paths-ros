@@ -42,13 +42,13 @@
 namespace reeds_shepp
 {
   RSPathsROS::RSPathsROS(
-    std::string name = "",
-    costmap_2d::Costmap2DROS* costmapROS = NULL,
-    tf::TransformListener* tfListener = NULL)
+    std::string name,
+    costmap_2d::Costmap2DROS* costmapROS,
+    tf::TransformListener* tfListener)
     :
       reedsSheppStateSpace_(new ompl::base::ReedsSheppStateSpace),
       simpleSetup_(new ompl::geometric::SimpleSetup(reedsSheppStateSpace_)),
-      costmapROS_(NULL), tfListener_(NULL), bx_(10), by_(10), bounds_(2),
+      costmapROS_(), tfListener_(), bx_(10), by_(10), bounds_(2),
       initialized_(false)
   {
     initialize(name, costmapROS, tfListener);
@@ -57,10 +57,6 @@ namespace reeds_shepp
 
   RSPathsROS::~RSPathsROS()
   {
-    // delete costmapROS_;
-    // delete costmap_;
-    // delete costmapModel_;
-    // delete tfListener_;
   }
 
 
@@ -69,22 +65,24 @@ namespace reeds_shepp
     costmap_2d::Costmap2DROS* costmapROS,
     tf::TransformListener* tfListener)
   {
-    costmapROS_ = costmapROS;
-    tfListener_ = tfListener;
+    costmapROS_.reset(costmapROS);
+    tfListener_.reset(tfListener);
 
     ros::NodeHandle pnh("~/" + name);
     pnh.param("min_turning_radius", minTurningRadius_, 1.0);
     pnh.param("max_planning_duration", maxPlanningDuration_, 0.2);
     pnh.param<int>("valid_state_max_cost", validStateMaxCost_, 100);
     pnh.param<int>("interpolation_num_poses", interpolationNumPoses_, 20);
+    pnh.param<bool>("allow_unknown", allowUnknown_, false);
+    pnh.param<int>("skip_poses", skipPoses_, 0);
 
-    if (costmapROS_ != NULL)
+    if (costmapROS_)
     {
-      costmap_ = costmapROS_->getCostmap();
-      costmapModel_ = new base_local_planner::CostmapModel(*costmap_);
+      costmap_.reset(costmapROS_->getCostmap());
+      costmapModel_.reset(new base_local_planner::CostmapModel(*costmap_));
       footprint_ = costmapROS_->getRobotFootprint();
 
-      if (tfListener_ == NULL)
+      if (!tfListener_)
       {
         ROS_FATAL("No tf listener provided.");
         exit(EXIT_FAILURE);
@@ -112,10 +110,10 @@ namespace reeds_shepp
   {
     bx_ = bx;
     by_ = by;
-    bounds_.low[0] = -by_ / 2;
-    bounds_.low[1] = -bx_ / 2;
-    bounds_.high[0] = by_ / 2;
-    bounds_.high[1] = bx_ / 2;
+    bounds_.low[0] = -by_ / 2 - 0.1;
+    bounds_.low[1] = -bx_ / 2 - 0.1;
+    bounds_.high[0] = by_ / 2 + 0.1;
+    bounds_.high[1] = bx_ / 2 + 0.1;
     reedsSheppStateSpace_->as<ompl::base::SE2StateSpace>()->setBounds(bounds_);
   }
 
@@ -131,7 +129,7 @@ namespace reeds_shepp
   void RSPathsROS::transform(const tf::Stamped<tf::Pose>& tfIn,
     tf::Stamped<tf::Pose>& tfOut, std::string targetFrameID)
   {
-    if (tfListener_ != NULL)
+    if (tfListener_)
       tfListener_->transformPose(targetFrameID, stamp_, tfIn,
         tfIn.frame_id_, tfOut);
   }
@@ -168,7 +166,7 @@ namespace reeds_shepp
     if (!si->satisfiesBounds(state))
       return false;
 
-    if (costmapROS_ == NULL || tfListener_ == NULL)
+    if (!costmapROS_ || !tfListener_)
       return true;
 
     const ompl::base::SE2StateSpace::StateType *s =
@@ -182,12 +180,8 @@ namespace reeds_shepp
       statePose.pose.position.x, statePose.pose.position.y,
       tf::getYaw(statePose.pose.orientation), footprint_);
 
-    // ROS_INFO("Cost[%f,%f,%f]: %d", statePose.pose.position.x,
-      // statePose.pose.position.y, tf::getYaw(statePose.pose.orientation),
-      // cost);
-
     // check if state is in collision
-    if (cost > validStateMaxCost_ && cost < 255)
+    if (cost > validStateMaxCost_ && cost < 256 - (allowUnknown_?1:0))
       return false;
 
     return true;
@@ -219,7 +213,7 @@ namespace reeds_shepp
 
     // transform the start and goal poses to the robot/local reference frame
     geometry_msgs::PoseStamped localStartPose, localGoalPose;
-    if (tfListener_ != NULL)
+    if (tfListener_)
     {
       transform(startPose, localStartPose, robotFrame_);
       transform(goalPose, localGoalPose, robotFrame_);
@@ -254,18 +248,45 @@ namespace reeds_shepp
     // interpolate between poses
     path.interpolate(interpolationNumPoses_);
 
-    // clear pathPoses vector in case it's not empty
-    pathPoses.clear();
+    // resize pathPoses
+    pathPoses.resize(path.getStateCount());
 
     // convert each state to a pose and store it in pathPoses vector
     for (unsigned int i = 0; i < path.getStateCount(); i++)
     {
-      const ompl::base::State* pathState = path.getState(i);
-      geometry_msgs::PoseStamped pathPose;
-      state2pose(pathState, pathPose);
-      pathPose.header.frame_id = robotFrame_;
-      pathPose.header.stamp = ros::Time::now();
-      pathPoses.push_back(pathPose);
+      const ompl::base::State* state = path.getState(i);
+      state2pose(state, pathPoses[i]);
+      pathPoses[i].header.frame_id = robotFrame_;
+      pathPoses[i].header.stamp = ros::Time::now();
+    }
+
+    return true;
+  }
+
+
+  bool RSPathsROS::planPath(
+    const std::vector<geometry_msgs::PoseStamped>& path,
+    std::vector<geometry_msgs::PoseStamped>& newPath)
+  {
+    newPath.clear();
+
+    unsigned int skipPoses = std::min<unsigned int>(skipPoses_, path.size() - 2);
+
+    for (unsigned int i = 0; i < path.size() - 1; i =
+      std::min<unsigned int>(i+skipPoses+1, path.size() - skipPoses - 2))
+    {
+      std::vector<geometry_msgs::PoseStamped> tmpPath;
+
+      if (!planPath(path[i], path[i+skipPoses+1], tmpPath))
+      {
+        ROS_ERROR("Failed to produce part of path");
+        return false;
+      }
+
+      newPath.insert(newPath.end(), tmpPath.begin(), tmpPath.end());
+
+      if (i >= path.size() - skipPoses - 2)
+        break;
     }
 
     return true;

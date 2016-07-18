@@ -72,6 +72,12 @@ namespace reeds_shepp
         const geometry_msgs::PoseStamped& goalPose,
         std::vector<geometry_msgs::PoseStamped>& pathPoses);
 
+      bool planPath(
+        const std::vector<geometry_msgs::PoseStamped>& path,
+        std::vector<geometry_msgs::PoseStamped>& newPath);
+
+
+
       double getMinTurningRadius() {return minTurningRadius_;}
       double getMaxPlanningDuration() {return maxPlanningDuration_;}
       double getBX() {return bx_;}
@@ -103,12 +109,12 @@ namespace reeds_shepp
       ompl::geometric::SimpleSetupPtr simpleSetup_;
       ompl::base::RealVectorBounds bounds_;
 
-      costmap_2d::Costmap2D *costmap_;
-      costmap_2d::Costmap2DROS *costmapROS_;
-      base_local_planner::CostmapModel *costmapModel_;
+      boost::shared_ptr<costmap_2d::Costmap2D> costmap_;
+      boost::shared_ptr<costmap_2d::Costmap2DROS> costmapROS_;
+      boost::shared_ptr<base_local_planner::CostmapModel> costmapModel_;
       std::vector<geometry_msgs::Point> footprint_;
 
-      tf::TransformListener* tfListener_;
+      boost::shared_ptr<tf::TransformListener> tfListener_;
 
       std::string robotFrame_;
       std::string globalFrame_;
@@ -118,7 +124,9 @@ namespace reeds_shepp
       double minTurningRadius_;
       double maxPlanningDuration_;
       int interpolationNumPoses_;
+      int skipPoses_;
       int validStateMaxCost_;
+      bool allowUnknown_;
 
       double bx_;
       double by_;
