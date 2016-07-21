@@ -57,6 +57,7 @@ namespace reeds_shepp
 
   RSPathsROS::~RSPathsROS()
   {
+    delete costmapModel_;
   }
 
 
@@ -65,8 +66,8 @@ namespace reeds_shepp
     costmap_2d::Costmap2DROS* costmapROS,
     tf::TransformListener* tfListener)
   {
-    costmapROS_.reset(costmapROS);
-    tfListener_.reset(tfListener);
+    costmapROS_ = costmapROS;
+    tfListener_ = tfListener;
 
     ros::NodeHandle pnh("~/" + name);
     pnh.param("min_turning_radius", minTurningRadius_, 1.0);
@@ -79,8 +80,8 @@ namespace reeds_shepp
 
     if (costmapROS_)
     {
-      costmap_.reset(costmapROS_->getCostmap());
-      costmapModel_.reset(new base_local_planner::CostmapModel(*costmap_));
+      costmap_ = costmapROS_->getCostmap();
+      costmapModel_ = new base_local_planner::CostmapModel(*costmap_);
       footprint_ = costmapROS_->getRobotFootprint();
 
       if (!tfListener_)
@@ -335,7 +336,7 @@ namespace reeds_shepp
 
     if (!success)
     {
-      ROS_ERROR("Failed to find valid plan even after reducing path");
+      // ROS_ERROR("Failed to find valid plan even after reducing path");
       return false;
     }
   }

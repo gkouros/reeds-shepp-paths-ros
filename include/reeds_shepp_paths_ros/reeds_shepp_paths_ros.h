@@ -113,12 +113,12 @@ namespace reeds_shepp
       ompl::geometric::SimpleSetupPtr simpleSetup_;
       ompl::base::RealVectorBounds bounds_;
 
-      boost::shared_ptr<costmap_2d::Costmap2D> costmap_;
-      boost::shared_ptr<costmap_2d::Costmap2DROS> costmapROS_;
-      boost::shared_ptr<base_local_planner::CostmapModel> costmapModel_;
+      costmap_2d::Costmap2D* costmap_;
+      costmap_2d::Costmap2DROS* costmapROS_;
+      base_local_planner::CostmapModel* costmapModel_;
       std::vector<geometry_msgs::Point> footprint_;
 
-      boost::shared_ptr<tf::TransformListener> tfListener_;
+      tf::TransformListener* tfListener_;
 
       std::string robotFrame_;
       std::string globalFrame_;
