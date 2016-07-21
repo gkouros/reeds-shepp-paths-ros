@@ -259,6 +259,9 @@ namespace reeds_shepp
     // interpolate between poses
     path.interpolate(interpolationNumPoses_);
 
+    if (path.getStateCount() > interpolationNumPoses_)
+      return false;
+
 
     // resize pathPoses
     pathPoses.resize(path.getStateCount());
