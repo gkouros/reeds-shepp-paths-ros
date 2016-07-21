@@ -71,10 +71,11 @@ namespace reeds_shepp
     ros::NodeHandle pnh("~/" + name);
     pnh.param("min_turning_radius", minTurningRadius_, 1.0);
     pnh.param("max_planning_duration", maxPlanningDuration_, 0.2);
-    pnh.param<int>("valid_state_max_cost", validStateMaxCost_, 100);
+    pnh.param<int>("valid_state_max_cost", validStateMaxCost_, 252);
     pnh.param<int>("interpolation_num_poses", interpolationNumPoses_, 20);
     pnh.param<bool>("allow_unknown", allowUnknown_, false);
     pnh.param<int>("skip_poses", skipPoses_, 0);
+    pnh.param<bool>("display_planner_output", displayPlannerOutput_, false);
 
     if (costmapROS_)
     {
@@ -174,6 +175,10 @@ namespace reeds_shepp
 
     geometry_msgs::PoseStamped statePose;
     state2pose(s, statePose);
+
+    if (fabs(s->getX()) < 5e-2 && fabs(s->getY()) < 5e-2)
+      return true;
+
     transform(statePose, statePose, globalFrame_);
 
     uint8_t cost = costmapModel_->footprintCost(
@@ -197,6 +202,13 @@ namespace reeds_shepp
     {
       ROS_ERROR("Planner not initialized!");
       return false;
+    }
+
+    // disable planner console output
+    if (!displayPlannerOutput_)
+    {
+      std::cout.setstate(std::ios_base::failbit);
+      std::cerr.setstate(std::ios_base::failbit);
     }
 
     // create start and goal states
@@ -234,19 +246,18 @@ namespace reeds_shepp
     simpleSetup_->setStartAndGoalStates(start, goal);
 
     if (!simpleSetup_->solve(maxPlanningDuration_))
-    {
-      ROS_ERROR("No solution found");
       return false;
-    }
     else
-      ROS_INFO("Found solution");
+      ROS_DEBUG("[reeds_shepp_planner] Valid plan found");
 
     // simplify solution
     simpleSetup_->simplifySolution();
+
     // get solution path
     ompl::geometric::PathGeometric path = simpleSetup_->getSolutionPath();
     // interpolate between poses
     path.interpolate(interpolationNumPoses_);
+
 
     // resize pathPoses
     pathPoses.resize(path.getStateCount());
@@ -259,6 +270,10 @@ namespace reeds_shepp
       pathPoses[i].header.frame_id = robotFrame_;
       pathPoses[i].header.stamp = ros::Time::now();
     }
+
+    // enable console output
+    std::cout.clear();
+    std::cerr.clear();
 
     return true;
   }
@@ -279,8 +294,11 @@ namespace reeds_shepp
 
       if (!planPath(path[i], path[i+skipPoses+1], tmpPath))
       {
-        ROS_ERROR("Failed to produce part of path");
-        return false;
+        // ROS_ERROR("Failed to plan subplan %d out of %d", i,
+          // path.size()/(skipPoses_+1));
+        skipPoses++;
+        i--;
+        continue;
       }
 
       newPath.insert(newPath.end(), tmpPath.begin(), tmpPath.end());
@@ -290,6 +308,36 @@ namespace reeds_shepp
     }
 
     return true;
+  }
+
+  bool RSPathsROS::planRecedingPath(
+    const std::vector<geometry_msgs::PoseStamped>& path,
+    std::vector<geometry_msgs::PoseStamped>& newPath)
+  {
+    newPath.clear();
+
+    bool success;
+    for (unsigned int i = 0; i < floor(sqrt(path.size())); i++)
+    {
+      success = planPath(
+        path.front(), path[(path.size()-1) / (i+1)], newPath);
+
+      if (success)
+      {
+        for (unsigned j = (path.size()-1)/(i+1); j < path.size(); j++)
+        {
+          geometry_msgs::PoseStamped pose;
+          transform(path[j], pose, robotFrame_);
+          newPath.push_back(pose);
+        }
+      }
+    }
+
+    if (!success)
+    {
+      ROS_ERROR("Failed to find valid plan even after reducing path");
+      return false;
+    }
   }
 
 }  // namespace reeds_shepp

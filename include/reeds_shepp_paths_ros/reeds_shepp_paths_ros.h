@@ -76,6 +76,10 @@ namespace reeds_shepp
         const std::vector<geometry_msgs::PoseStamped>& path,
         std::vector<geometry_msgs::PoseStamped>& newPath);
 
+      bool planRecedingPath(
+        const std::vector<geometry_msgs::PoseStamped>& path,
+        std::vector<geometry_msgs::PoseStamped>& newPath);
+
 
 
       double getMinTurningRadius() {return minTurningRadius_;}
@@ -127,6 +131,7 @@ namespace reeds_shepp
       int skipPoses_;
       int validStateMaxCost_;
       bool allowUnknown_;
+      bool displayPlannerOutput_;
 
       double bx_;
       double by_;
